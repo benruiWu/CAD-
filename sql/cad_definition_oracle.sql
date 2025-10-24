@@ -11,6 +11,42 @@ WITH patient_base AS (
     FROM dim_patient p
 ),
 
+-- 0. 心肌损伤标志物原始检测明细（CK-MB / 肌钙蛋白）
+tnc_test AS (
+    SELECT *
+    FROM KSRAWDATA_2024_08.Z01_HOS_TESTDETAILS
+    WHERE EX_PROJ_NAME LIKE '%CK-MB%'
+       OR (EX_PROJ_NAME LIKE '%肌酸激酶%' AND EX_PROJ_NAME LIKE '%同工酶%')
+       OR EX_PROJ_NAME LIKE '%肌钙蛋白%'
+       OR EX_PROJ_NAME LIKE '%cTn%'
+       OR EX_PROJ_NAME LIKE '%TnC%'
+       OR EX_PROJ_NAME LIKE '%TnI%'
+       OR EX_PROJ_NAME LIKE '%TnL%'
+       OR EX_PROJ_NAME LIKE '%TnT%'
+       OR EX_PROJ_NAME LIKE '%Troponin%'
+),
+
+-- 心肌损伤检测阳性判断（保留阳性记录）
+tnc_positive_results AS (
+    SELECT
+        t.*,
+        CASE
+            WHEN t.NO_RPT LIKE '%<%' THEN 0
+            WHEN t.NO_RPT LIKE '%>%' THEN 1
+            WHEN REGEXP_LIKE(t.NO_RPT, '^[0-9]+(\.[0-9]+)?$')
+                 AND TO_NUMBER(REGEXP_SUBSTR(t.NO_RPT, '[0-9]+(\.[0-9]+)?')) > t.UNL THEN 1
+            WHEN REGEXP_SUBSTR(t.NO_RPT, '[0-9]+(\.[0-9]+)?') IS NOT NULL
+                 AND TO_NUMBER(REGEXP_SUBSTR(t.NO_RPT, '[0-9]+(\.[0-9]+)?')) > t.UNL THEN 1
+            WHEN t.NO_RPT LIKE '%阳性%' THEN 1
+            ELSE 0
+        END AS positive_flag,
+        CASE
+            WHEN REGEXP_SUBSTR(t.NO_RPT, '[0-9]+(\.[0-9]+)?') IS NOT NULL
+                 THEN TO_NUMBER(REGEXP_SUBSTR(t.NO_RPT, '[0-9]+(\.[0-9]+)?'))
+        END AS numeric_result
+    FROM tnc_test t
+),
+
 -- 1. 介入与手术操作记录：如 PCI、CABG
 procedure_evidence AS (
     SELECT DISTINCT
@@ -61,14 +97,13 @@ cta_evidence AS (
 -- 4. 心肌损伤标志物
 lab_biomarker_evidence AS (
     SELECT DISTINCT
-        l.patient_id,
-        l.encounter_id,
-        l.test_code,
-        l.test_date,
-        l.result_value
-    FROM fact_lab_result l
-    WHERE l.test_code IN ('CKMB', 'TROPONIN_I', 'TROPONIN_T')
-      AND l.result_value > l.upper_limit
+        t.PATIENT_ID AS patient_id,
+        t.VISIT_ID AS encounter_id,
+        t.EX_PROJ_NAME AS test_code,
+        t.REPORT_TIME AS test_date,
+        NVL(t.numeric_result, t.UNL) AS result_value
+    FROM tnc_positive_results t
+    WHERE t.positive_flag = 1
 ),
 
 -- 5. 双联抗血小板治疗：同一次就诊至少两种抗板药。
