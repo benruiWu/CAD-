@@ -1,7 +1,7 @@
 -- CAD Precision Definition Script for Oracle Database
 -- This script consolidates diagnostic evidence across multiple clinical data sources
 -- to identify patients with Coronary Artery Disease (CAD).
--- 数据源包括：诊断、手术史、用药、化验、影像、心电图、症状及慢病史。
+-- 数据源包括：手术史、用药、化验、影像、心电图、症状及慢病史。
 
 WITH patient_base AS (
     SELECT DISTINCT
@@ -11,19 +11,7 @@ WITH patient_base AS (
     FROM dim_patient p
 ),
 
--- 1. 诊断信息：门急诊与住院诊断 ICD10 代码
-encounter_diagnoses AS (
-    SELECT DISTINCT
-        d.patient_id,
-        d.encounter_id,
-        d.encounter_type,
-        d.diagnosis_code,
-        d.diagnosis_date
-    FROM fact_diagnosis d
-    WHERE d.diagnosis_code BETWEEN 'I20' AND 'I2599'
-),
-
--- 2. 介入与手术操作记录：如 PCI、CABG
+-- 1. 介入与手术操作记录：如 PCI、CABG
 procedure_evidence AS (
     SELECT DISTINCT
         op.patient_id,
@@ -38,7 +26,7 @@ procedure_evidence AS (
     )
 ),
 
--- 3. 冠脉造影：仅保留狭窄程度 >50%
+-- 2. 冠脉造影：仅保留狭窄程度 >50%
 angiography_evidence AS (
     SELECT DISTINCT
         img.patient_id,
@@ -50,7 +38,7 @@ angiography_evidence AS (
       AND NVL(img.stenosis_percent, 0) > 50
 ),
 
--- 4. 冠脉 CTA：筛选中度及以上狭窄
+-- 3. 冠脉 CTA：筛选中度及以上狭窄
 cta_evidence AS (
     SELECT DISTINCT
         img.patient_id,
@@ -70,7 +58,7 @@ cta_evidence AS (
       )
 ),
 
--- 5. 心肌损伤标志物
+-- 4. 心肌损伤标志物
 lab_biomarker_evidence AS (
     SELECT DISTINCT
         l.patient_id,
@@ -83,7 +71,8 @@ lab_biomarker_evidence AS (
       AND l.result_value > l.upper_limit
 ),
 
--- 6. 双联抗血小板治疗：同一次就诊至少两种抗板药
+-- 5. 双联抗血小板治疗：同一次就诊至少两种抗板药。
+--    由于强化抗板方案伴随较高出血风险，通常仅在确诊或高度怀疑急性心梗时实施，可视为金标准证据。
 dual_antiplatelet_therapy AS (
     SELECT
         m.patient_id,
@@ -100,7 +89,8 @@ dual_antiplatelet_therapy AS (
     HAVING COUNT(DISTINCT m.medication_code) >= 2
 ),
 
--- 7. 长期抗血小板治疗：单药持续用药 >=90 天
+-- 6. 长期抗血小板治疗：单药持续用药 >=90 天。
+--    持续维持抗板药物代表医生在权衡出血风险后仍需持续预防，提示既往事件或高度风险。
 long_term_antiplatelet AS (
     SELECT DISTINCT
         m.patient_id,
@@ -123,7 +113,7 @@ long_term_antiplatelet AS (
       )
 ),
 
--- 8. 其他 CAD 相关维持治疗药物
+-- 7. 其他 CAD 相关维持治疗药物
 cad_maintenance_medications AS (
     SELECT DISTINCT
         m.patient_id,
@@ -137,7 +127,7 @@ cad_maintenance_medications AS (
     )
 ),
 
--- 9. 心电图证据：ST 段改变、病理性 Q 波
+-- 8. 心电图证据：ST 段改变、病理性 Q 波
 ecg_evidence AS (
     SELECT DISTINCT
         ecg.patient_id,
@@ -152,7 +142,7 @@ ecg_evidence AS (
     )
 ),
 
--- 10. 症状：特异性与非特异性区分
+-- 9. 症状：特异性与非特异性区分
 specific_symptom_evidence AS (
     SELECT DISTINCT
         s.patient_id,
@@ -161,9 +151,11 @@ specific_symptom_evidence AS (
         s.symptom_date
     FROM fact_encounter_symptom s
     WHERE s.symptom_code IN (
-        'TYPICAL_ANGINA',
-        'REST_CHEST_PAIN',
-        'ANGINA_EQUIVALENT'
+        'TYPICAL_ANGINA',           -- 劳力或静息诱发的典型压榨性胸痛
+        'REST_CHEST_PAIN',          -- 静息胸痛持续 ≥20 分钟
+        'ANGINA_EQUIVALENT',        -- 心绞痛等效症状
+        'CHEST_PAIN_RADIATING',     -- 胸痛向左上肢、下颌或背部放射
+        'CHEST_PAIN_WITH_DIAPHORESIS' -- 胸痛伴冷汗/恶心呕吐
     )
 ),
 
@@ -176,11 +168,13 @@ general_symptom_evidence AS (
     FROM fact_encounter_symptom s
     WHERE s.symptom_code IN (
         'CHEST_TIGHTNESS',
-        'DYSPNEA'
+        'DYSPNEA',
+        'EPIGASTRIC_DISCOMFORT',
+        'FATIGUE'
     )
 ),
 
--- 11. 慢病史：高血压、糖尿病、血脂异常
+-- 10. 慢病史：高血压、糖尿病、血脂异常
 chronic_condition_history AS (
     SELECT DISTINCT
         c.patient_id,
@@ -194,18 +188,8 @@ chronic_condition_history AS (
     )
 ),
 
--- 12. 综合证据表：合并所有来源并添加证据类型与数值
+-- 11. 综合证据表：合并所有来源并添加证据类型与数值
 combined_evidence AS (
-    SELECT patient_id,
-           encounter_id,
-           diagnosis_date AS evidence_date,
-           'DIAGNOSIS' AS evidence_type,
-           diagnosis_code AS evidence_code,
-           NULL AS evidence_numeric
-    FROM encounter_diagnoses
-
-    UNION ALL
-
     SELECT patient_id,
            encounter_id,
            procedure_date,
@@ -315,7 +299,7 @@ combined_evidence AS (
     FROM chronic_condition_history
 ),
 
--- 13. 证据分类与评分
+-- 12. 证据分类与评分
 classified_evidence AS (
     SELECT
         ce.patient_id,
@@ -335,11 +319,15 @@ classified_evidence AS (
             WHEN ce.evidence_type = 'MEDICATION' AND ce.evidence_code = 'LONG_TERM_ANTIPLATELET' THEN 'STRONG'
             WHEN ce.evidence_type = 'ECG' THEN 'STRONG'
             WHEN ce.evidence_type = 'SYMPTOM'
-                 AND ce.evidence_code IN ('TYPICAL_ANGINA', 'REST_CHEST_PAIN', 'ANGINA_EQUIVALENT') THEN 'STRONG'
+                 AND ce.evidence_code IN (
+                     'TYPICAL_ANGINA',
+                     'REST_CHEST_PAIN',
+                     'ANGINA_EQUIVALENT',
+                     'CHEST_PAIN_RADIATING',
+                     'CHEST_PAIN_WITH_DIAPHORESIS'
+                 ) THEN 'STRONG'
             WHEN ce.evidence_type = 'SYMPTOM' THEN 'MODERATE'
-            WHEN ce.evidence_type = 'DIAGNOSIS' AND ce.evidence_code BETWEEN 'I21' AND 'I2199' THEN 'MODERATE'
             WHEN ce.evidence_type = 'MEDICATION' THEN 'MODERATE'
-            WHEN ce.evidence_type = 'DIAGNOSIS' THEN 'MODERATE'
             WHEN ce.evidence_type = 'CHRONIC_CONDITION' THEN 'WEAK'
             ELSE 'WEAK'
         END AS evidence_category,
@@ -354,18 +342,22 @@ classified_evidence AS (
             WHEN ce.evidence_type = 'MEDICATION' AND ce.evidence_code = 'LONG_TERM_ANTIPLATELET' THEN 4
             WHEN ce.evidence_type = 'ECG' THEN 4
             WHEN ce.evidence_type = 'SYMPTOM'
-                 AND ce.evidence_code IN ('TYPICAL_ANGINA', 'REST_CHEST_PAIN', 'ANGINA_EQUIVALENT') THEN 4
+                 AND ce.evidence_code IN (
+                     'TYPICAL_ANGINA',
+                     'REST_CHEST_PAIN',
+                     'ANGINA_EQUIVALENT',
+                     'CHEST_PAIN_RADIATING',
+                     'CHEST_PAIN_WITH_DIAPHORESIS'
+                 ) THEN 4
             WHEN ce.evidence_type = 'SYMPTOM' THEN 2
-            WHEN ce.evidence_type = 'DIAGNOSIS' AND ce.evidence_code BETWEEN 'I21' AND 'I2199' THEN 2
             WHEN ce.evidence_type = 'MEDICATION' THEN 2
-            WHEN ce.evidence_type = 'DIAGNOSIS' THEN 2
             WHEN ce.evidence_type = 'CHRONIC_CONDITION' THEN 1
             ELSE 1
         END AS evidence_score
     FROM combined_evidence ce
 ),
 
--- 14. 患者级别的综合评分与首次证据分类统计
+-- 13. 患者级别的综合评分与首次证据分类统计
 patient_cad_summary AS (
     SELECT
         se.patient_id,
@@ -380,7 +372,7 @@ patient_cad_summary AS (
     GROUP BY se.patient_id
 )
 
--- 15. 输出结果：展示证据梯度与最终分类
+-- 14. 输出结果：展示证据梯度与最终分类
 SELECT
     pb.patient_id,
     pb.gender,
