@@ -227,7 +227,7 @@ chronic_condition_history AS (
 combined_evidence AS (
     SELECT patient_id,
            encounter_id,
-           procedure_date,
+           procedure_date AS evidence_date,
            'PROCEDURE' AS evidence_type,
            procedure_code AS evidence_code,
            NULL AS evidence_numeric
