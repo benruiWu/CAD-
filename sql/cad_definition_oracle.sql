@@ -237,7 +237,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           report_date,
+           report_date AS evidence_date,
            'IMAGING' AS evidence_type,
            'CORONARY_ANGIOGRAPHY' AS evidence_code,
            stenosis_percent AS evidence_numeric
@@ -247,7 +247,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           report_date,
+           report_date AS evidence_date,
            'IMAGING' AS evidence_type,
            'CORONARY_CTA' AS evidence_code,
            stenosis_percent AS evidence_numeric
@@ -257,7 +257,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           test_date,
+           test_date AS evidence_date,
            'LAB' AS evidence_type,
            test_code AS evidence_code,
            result_value AS evidence_numeric
@@ -267,7 +267,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           therapy_start_date,
+           therapy_start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
            'DUAL_ANTIPLATELET' AS evidence_code,
            NULL AS evidence_numeric
@@ -277,7 +277,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           start_date,
+           start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
            'LONG_TERM_ANTIPLATELET' AS evidence_code,
            days_supply AS evidence_numeric
@@ -287,7 +287,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           start_date,
+           start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
            medication_code AS evidence_code,
            NULL AS evidence_numeric
@@ -297,7 +297,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           ecg_date,
+           ecg_date AS evidence_date,
            'ECG' AS evidence_type,
            ecg_code AS evidence_code,
            NULL AS evidence_numeric
@@ -307,7 +307,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           symptom_date,
+           symptom_date AS evidence_date,
            'SYMPTOM' AS evidence_type,
            symptom_code AS evidence_code,
            NULL AS evidence_numeric
@@ -317,7 +317,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            encounter_id,
-           symptom_date,
+           symptom_date AS evidence_date,
            'SYMPTOM' AS evidence_type,
            symptom_code AS evidence_code,
            NULL AS evidence_numeric
@@ -327,7 +327,7 @@ combined_evidence AS (
 
     SELECT patient_id,
            NULL AS encounter_id,
-           record_date,
+           record_date AS evidence_date,
            'CHRONIC_CONDITION' AS evidence_type,
            condition_code AS evidence_code,
            NULL AS evidence_numeric
