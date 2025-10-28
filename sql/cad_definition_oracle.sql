@@ -5,14 +5,14 @@
 
 WITH patient_base AS (
     SELECT DISTINCT
-        p.patient_id,
+        p.GLOBAL_INDEX AS GLOBAL_INDEX,
         p.gender,
         p.birth_date
     FROM dim_patient p
 ),
 
 combined_evidence AS (
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            procedure_date AS evidence_date,
            'PROCEDURE' AS evidence_type,
@@ -22,7 +22,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            report_date AS evidence_date,
            'IMAGING' AS evidence_type,
@@ -32,7 +32,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            report_date AS evidence_date,
            'IMAGING' AS evidence_type,
@@ -42,7 +42,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            test_date AS evidence_date,
            'LAB' AS evidence_type,
@@ -52,7 +52,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            therapy_start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
@@ -62,7 +62,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
@@ -72,7 +72,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
@@ -82,7 +82,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            ecg_date AS evidence_date,
            'ECG' AS evidence_type,
@@ -92,7 +92,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            symptom_date AS evidence_date,
            'SYMPTOM' AS evidence_type,
@@ -102,7 +102,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            encounter_id,
            symptom_date AS evidence_date,
            'SYMPTOM' AS evidence_type,
@@ -112,7 +112,7 @@ combined_evidence AS (
 
     UNION ALL
 
-    SELECT patient_id,
+    SELECT GLOBAL_INDEX,
            NULL AS encounter_id,
            record_date AS evidence_date,
            'CHRONIC_CONDITION' AS evidence_type,
@@ -123,7 +123,7 @@ combined_evidence AS (
 
 classified_evidence AS (
     SELECT
-        ce.patient_id,
+        ce.GLOBAL_INDEX,
         ce.encounter_id,
         ce.evidence_type,
         ce.evidence_code,
@@ -180,7 +180,7 @@ classified_evidence AS (
 
 patient_cad_summary AS (
     SELECT
-        se.patient_id,
+        se.GLOBAL_INDEX,
         MIN(se.evidence_date) AS first_cad_date,
         SUM(se.evidence_score) AS total_score,
         COUNT(DISTINCT se.evidence_type) AS evidence_types,
@@ -189,11 +189,11 @@ patient_cad_summary AS (
         SUM(CASE WHEN se.evidence_category = 'MODERATE' THEN 1 ELSE 0 END) AS moderate_evidence_count,
         SUM(CASE WHEN se.evidence_category = 'WEAK' THEN 1 ELSE 0 END) AS weak_evidence_count
     FROM classified_evidence se
-    GROUP BY se.patient_id
+    GROUP BY se.GLOBAL_INDEX
 )
 
 SELECT
-    pb.patient_id,
+    pb.GLOBAL_INDEX,
     pb.gender,
     pb.birth_date,
     pcs.first_cad_date,
@@ -205,4 +205,4 @@ SELECT
     pcs.weak_evidence_count
 FROM patient_base pb
 LEFT JOIN patient_cad_summary pcs
-    ON pb.patient_id = pcs.patient_id;
+    ON pb.GLOBAL_INDEX = pcs.GLOBAL_INDEX;

@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_long_term_antiplatelet AS
 SELECT DISTINCT
-    m.patient_id,
+    m.GLOBAL_INDEX AS GLOBAL_INDEX,
     m.encounter_id,
     m.start_date,
     m.days_supply
@@ -15,6 +15,6 @@ WHERE m.medication_code IN (
   AND NOT EXISTS (
       SELECT 1
       FROM cad_dual_antiplatelet_therapy dapt
-      WHERE dapt.patient_id = m.patient_id
+      WHERE dapt.GLOBAL_INDEX = m.GLOBAL_INDEX
         AND dapt.encounter_id = m.encounter_id
   );

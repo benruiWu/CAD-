@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_procedure_evidence AS
 SELECT DISTINCT
-    op.patient_id,
+    op.GLOBAL_INDEX AS GLOBAL_INDEX,
     op.encounter_id,
     op.procedure_code,
     op.procedure_date

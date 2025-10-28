@@ -32,7 +32,7 @@ FROM cad_tnc_test t;
 
 CREATE OR REPLACE VIEW cad_lab_biomarker_evidence AS
 SELECT DISTINCT
-    t.PATIENT_ID AS patient_id,
+    t.PATIENT_ID AS GLOBAL_INDEX,
     t.VISIT_ID AS encounter_id,
     t.EX_PROJ_NAME AS test_code,
     t.REPORT_TIME AS test_date,

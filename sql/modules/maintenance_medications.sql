@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_maintenance_medications AS
 SELECT DISTINCT
-    m.patient_id,
+    m.GLOBAL_INDEX AS GLOBAL_INDEX,
     m.encounter_id,
     m.medication_code,
     m.start_date
