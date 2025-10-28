@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_specific_symptom_evidence AS
 SELECT DISTINCT
-    s.patient_id,
+    s.GLOBAL_INDEX AS GLOBAL_INDEX,
     s.encounter_id,
     s.symptom_code,
     s.symptom_date

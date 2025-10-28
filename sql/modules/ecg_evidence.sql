@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_ecg_evidence AS
 SELECT DISTINCT
-    ecg.patient_id,
+    ecg.GLOBAL_INDEX AS GLOBAL_INDEX,
     ecg.encounter_id,
     ecg.ecg_code,
     ecg.ecg_date

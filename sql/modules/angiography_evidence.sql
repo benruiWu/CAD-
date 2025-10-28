@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW cad_angiography_evidence AS
 SELECT DISTINCT
-    img.patient_id,
+    img.GLOBAL_INDEX AS GLOBAL_INDEX,
     img.encounter_id,
     img.report_date,
     img.stenosis_percent
