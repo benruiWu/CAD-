@@ -1,3 +1,4 @@
+-- Long-term antiplatelet therapy evidence
 CREATE OR REPLACE VIEW cad_long_term_antiplatelet AS
 SELECT DISTINCT
     m.GLOBAL_INDEX AS GLOBAL_INDEX,
@@ -16,5 +17,5 @@ WHERE m.medication_code IN (
       SELECT 1
       FROM cad_dual_antiplatelet_therapy dapt
       WHERE dapt.GLOBAL_INDEX = m.GLOBAL_INDEX
-        AND dapt.encounter_id = m.encounter_id
+        AND dapt.therapy_start_date = TRUNC(m.start_date)
   );
