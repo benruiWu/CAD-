@@ -64,10 +64,10 @@ combined_evidence AS (
 
     SELECT GLOBAL_INDEX,
            encounter_id,
-           start_date AS evidence_date,
+           therapy_start_date AS evidence_date,
            'MEDICATION' AS evidence_type,
            'LONG_TERM_ANTIPLATELET' AS evidence_code,
-           days_supply AS evidence_numeric
+           therapy_months AS evidence_numeric
     FROM cad_long_term_antiplatelet
 
     UNION ALL

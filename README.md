@@ -53,7 +53,7 @@
 | `cta_evidence.sql` | 创建 `cad_cta_evidence` 视图，保留中度及以上狭窄的冠脉 CTA 报告 |
 | `lab_biomarker_evidence.sql` | 创建 `cad_lab_biomarker_evidence` 视图以及相关阳性肌钙蛋白判定逻辑 |
 | `dual_antiplatelet_therapy.sql` | 创建 `cad_dual_antiplatelet_therapy` 视图，识别同次就诊的双联抗板治疗 |
-| `long_term_antiplatelet.sql` | 创建 `cad_long_term_antiplatelet` 视图，识别 ≥90 天的长期抗板用药 |
+| `long_term_antiplatelet.sql` | 创建 `cad_long_term_antiplatelet` 视图，识别连续 ≥6 个月的长期抗板用药 |
 | `maintenance_medications.sql` | 创建 `cad_maintenance_medications` 视图，收集其他 CAD 相关维持药物 |
 | `ecg_evidence.sql` | 创建 `cad_ecg_evidence` 视图，抽取 ST 段改变、病理性 Q 波等心电图证据 |
 | `specific_symptom_evidence.sql` | 创建 `cad_specific_symptom_evidence` 视图，保留典型缺血症状 |
