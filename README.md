@@ -42,6 +42,33 @@
 
 ### SQL 脚本
 
-详见 [`sql/cad_definition_oracle.sql`](sql/cad_definition_oracle.sql)，脚本使用公共表表达式依次整合上述证据来源，并给出最终的 CAD 分类结果。
+主脚本位于 [`sql/cad_definition_oracle.sql`](sql/cad_definition_oracle.sql)，使用公共表表达式整合所有证据源并输出最终的 CAD 分类结果。
 
-> 所有表名及代码仅作为模板示例，可根据实际库表结构和编码体系进行调整。
+为便于协作维护，具体的证据抽取逻辑已拆分到 [`sql/modules/`](sql/modules) 目录：
+
+| 模块脚本 | 说明 |
+| --- | --- |
+| `procedure_evidence.sql` | 创建 `cad_procedure_evidence` 视图，抽取 PCI/CABG 等介入或手术记录 |
+| `angiography_evidence.sql` | 创建 `cad_angiography_evidence` 视图，筛选狭窄 >50% 的冠脉造影结果 |
+| `cta_evidence.sql` | 创建 `cad_cta_evidence` 视图，保留中度及以上狭窄的冠脉 CTA 报告 |
+| `lab_biomarker_evidence.sql` | 创建 `cad_lab_biomarker_evidence` 视图以及相关阳性肌钙蛋白判定逻辑 |
+| `dual_antiplatelet_therapy.sql` | 创建 `cad_dual_antiplatelet_therapy` 视图，识别同次就诊的双联抗板治疗 |
+| `long_term_antiplatelet.sql` | 创建 `cad_long_term_antiplatelet` 视图，识别连续 ≥6 个月的长期抗板用药 |
+| `maintenance_medications.sql` | 创建 `cad_maintenance_medications` 视图，收集其他 CAD 相关维持药物 |
+| `ecg_evidence.sql` | 创建 `cad_ecg_evidence` 视图，抽取 ST 段改变、病理性 Q 波等心电图证据 |
+| `specific_symptom_evidence.sql` | 创建 `cad_specific_symptom_evidence` 视图，保留典型缺血症状 |
+| `general_symptom_evidence.sql` | 创建 `cad_general_symptom_evidence` 视图，保留非特异性症状 |
+| `chronic_condition_history.sql` | 创建 `cad_chronic_condition_history` 视图，纳入高血压/糖尿病/血脂异常等慢病史 |
+
+> 建议先在 Oracle 中依次执行模块脚本创建 `cad_` 前缀视图，再运行主脚本完成证据汇总。所有表名及代码仅作为模板示例，可根据实际库表结构和编码体系进行调整。
+
+## 现阶段进度
+
+- 肌钙蛋白检测：已完成（共 50,000 人检测，9,000 例阳性）
+- 冠脉 CTA：已完成（共 2,000 人检测，623 例阳性）
+- 冠脉造影：进行中（完成 50%，共 2,697 例检测）
+- 药物识别：未开始
+- 死亡原因识别：未开始
+- 手术史整理：未开始（预期工作量大）
+- 心电图识别：未开始（预期工作量大）
+- 症状识别：未开始（预期工作量大）
