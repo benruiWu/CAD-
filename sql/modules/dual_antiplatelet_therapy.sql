@@ -1,14 +1,41 @@
+CREATE TABLE CAD_DUL_ANTIPLATELET_DRUG
+AS
+SELECT a.*
+FROM KSQC_2024.SQC_WM_PRESCRIPTIONS_ALL a
+JOIN (
+    SELECT
+        GLOBAL_INDEX,
+        ORGAN_NAME,
+        TRUNC(DRUG_DATE) AS DRUG_DAY
+    FROM
+        KSQC_2024.SQC_WM_PRESCRIPTIONS_ALL
+    WHERE
+        CAT_CODE = 'XB01AC'
+    GROUP BY
+        GLOBAL_INDEX,
+        ORGAN_NAME,
+        TRUNC(DRUG_DATE)
+    HAVING
+        COUNT(DISTINCT DRUG_NAME) > 1
+) b
+ON a.GLOBAL_INDEX = b.GLOBAL_INDEX
+AND a.ORGAN_NAME = b.ORGAN_NAME
+AND TRUNC(a.DRUG_DATE) = b.DRUG_DAY
+WHERE
+    a.CAT_CODE = 'XB01AC'
+ORDER BY
+    a.ORGAN_NAME,
+    b.DRUG_DAY,
+    a.GLOBAL_INDEX,
+    a.DRUG_NAME;
+
+-- 将派生表暴露为视图供CAD定义脚本使用
 CREATE OR REPLACE VIEW cad_dual_antiplatelet_therapy AS
 SELECT
-    m.GLOBAL_INDEX AS GLOBAL_INDEX,
-    m.encounter_id,
-    MIN(m.start_date) AS therapy_start_date
-FROM fact_medication m
-WHERE m.medication_code IN (
-    'ATC-B01AC04',
-    'ATC-B01AC05',
-    'ATC-B01AC24',
-    'ATC-B01AC30'
-)
-GROUP BY m.GLOBAL_INDEX, m.encounter_id
-HAVING COUNT(DISTINCT m.medication_code) >= 2;
+    d.GLOBAL_INDEX,
+    d.ORGAN_NAME AS encounter_id,
+    TRUNC(d.DRUG_DATE) AS therapy_start_date,
+    d.DRUG_NAME,
+    d.DRUG_DATE,
+    d.CAT_CODE
+FROM CAD_DUL_ANTIPLATELET_DRUG d;
