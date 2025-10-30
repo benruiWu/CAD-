@@ -50,7 +50,7 @@
 | --- | --- |
 | `procedure_evidence.sql` | 创建 `cad_procedure_evidence` 视图，抽取 PCI/CABG 等介入或手术记录 |
 | `angiography_evidence.sql` | 创建 `cad_angiography_evidence` 视图，筛选狭窄 >50% 的冠脉造影结果 |
-| `cta_evidence.sql` | 创建 `cad_cta_evidence` 视图，保留中度及以上狭窄的冠脉 CTA 报告 |
+| `cta_evidence.sql` | 创建 `cad_cta_evidence` 视图，依据冠脉 CTA 报告文本规则识别 CAD 阳性检查 |
 | `lab_biomarker_evidence.sql` | 创建 `cad_lab_biomarker_evidence` 视图以及相关阳性肌钙蛋白判定逻辑 |
 | `dual_antiplatelet_therapy.sql` | 创建 `cad_dual_antiplatelet_therapy` 视图，识别同次就诊的双联抗板治疗 |
 | `long_term_antiplatelet.sql` | 创建 `cad_long_term_antiplatelet` 视图，识别连续 ≥6 个月的长期抗板用药 |
