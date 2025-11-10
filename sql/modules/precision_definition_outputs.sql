@@ -1,0 +1,164 @@
+-- 精准定义最终输出：患病（prevalence）与事件（incidence）队列
+--
+-- 该脚本将核心证据表整合到统一的原始事件表（SQC_MI_PRECISION_DEF_RAW），
+-- 并派生两个终端数据集：
+--   1. SQC_MI_PC_DEF_PREVALENCE：每位患者一行，给出首诊日期与全部证据来源。
+--   2. SQC_MI_PRECISION_DEF_INCIDENCE：去重后的事件明细，按 10 天的时间窗合并相邻事件。
+--
+-- 输入依赖：
+--   * TNC_TEST_POSITIVE                        —— 心肌损伤标志物阳性记录
+--   * CAG_ALL_RESULTS_JUDGMENT                —— 冠脉造影判读结果
+--   * CAG_CAD_JUDGMENT_FINAL                  —— CTA 文本判读结果
+--   * CAD_DUL_ANTIPLATELET_EVENTS             —— 双联抗板每日事件汇总（由 dual_antiplatelet_therapy.sql 生成）
+--   * CAD_LONGTERM_ANTIPLATELET_DRUG          —— 连续 ≥6 个月抗板用药事件
+--
+-- 执行前如需重新生成表，可根据需要添加 DROP TABLE 语句。
+
+-------------------------
+-- 原始事件汇总表
+-------------------------
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE SQC_MI_PRECISION_DEF_RAW PURGE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+            RAISE;
+        END IF;
+END;
+/
+CREATE TABLE SQC_MI_PRECISION_DEF_RAW AS
+SELECT
+    GLOBAL_INDEX,
+    TO_DATE(TEST_DT, 'YYYYMMDDHH24MISS') AS INCIDENT_DATE,
+    TO_CLOB(TO_CHAR(NO_RPT)) AS ORIGINAL_RESULTS,
+    TO_CHAR(UNL) AS UPPER_LIMIT,
+    'Cardiac injury biomarkers' AS SOURCE
+FROM TNC_TEST_POSITIVE
+
+UNION ALL
+
+SELECT
+    GLOBAL_INDEX,
+    TO_DATE(PROGRESS_DATE, 'YYYYMMDDHH24MISS') AS INCIDENT_DATE,
+    HOS_COURSE AS ORIGINAL_RESULTS,
+    'match at least one positive term' AS UPPER_LIMIT,
+    'CAG positive' AS SOURCE
+FROM CAG_ALL_RESULTS_JUDGMENT
+WHERE CAG_RESULT = '阳性'
+
+UNION ALL
+
+SELECT
+    GLOBAL_INDEX,
+    EVENT_DATE AS INCIDENT_DATE,
+    TO_CLOB(DRUG_LIST) AS ORIGINAL_RESULTS,
+    'at least two drugs used' AS UPPER_LIMIT,
+    'Dual anti-platelet drug use' AS SOURCE
+FROM CAD_DUL_ANTIPLATELET_EVENTS
+
+UNION ALL
+
+SELECT
+    GLOBAL_INDEX,
+    REAL_START_DATE AS INCIDENT_DATE,
+    TO_CLOB(TO_CHAR(CONSECUTIVE_MONTHS)) AS ORIGINAL_RESULTS,
+    TO_CHAR(6) AS UPPER_LIMIT,
+    'Consecutively using anti-platelet drug at least 6 month' AS SOURCE
+FROM CAD_LONGTERM_ANTIPLATELET_DRUG
+
+UNION ALL
+
+SELECT
+    GLOBAL_INDEX,
+    TO_DATE(CHK_DT, 'YYYYMMDDHH24MISS') AS INCIDENT_DATE,
+    PRT_SEEING AS ORIGINAL_RESULTS,
+    TO_CHAR(CAD_REASON) AS UPPER_LIMIT,
+    'CTA test' AS SOURCE
+FROM CAG_CAD_JUDGMENT_FINAL
+WHERE IS_CAD_FINAL = 1;
+
+-------------------------
+-- 患病定义（prevalence）：首诊日期与全部证据
+-------------------------
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE SQC_MI_PC_DEF_PREVALENCE PURGE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+            RAISE;
+        END IF;
+END;
+/
+CREATE TABLE SQC_MI_PC_DEF_PREVALENCE AS
+SELECT
+    GLOBAL_INDEX,
+    MIN(INCIDENT_DATE) AS FIRST_DIAG_DATE,
+    LISTAGG(SOURCE, '; ') WITHIN GROUP (ORDER BY SOURCE) AS ALL_SOURCES
+FROM (
+    SELECT DISTINCT GLOBAL_INDEX, SOURCE, INCIDENT_DATE
+    FROM SQC_MI_PRECISION_DEF_RAW
+)
+GROUP BY GLOBAL_INDEX;
+
+-------------------------
+-- 事件定义（incidence）：按 10 天窗口去重合并
+-------------------------
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE SQC_MI_PRECISION_DEF_TMP PURGE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+            RAISE;
+        END IF;
+END;
+/
+CREATE TABLE SQC_MI_PRECISION_DEF_TMP AS
+SELECT *
+FROM SQC_MI_PRECISION_DEF_RAW
+WHERE SOURCE NOT IN (
+    'Dual anti-platelet drug use',
+    'Consecutively using anti-platelet drug at least 6 month'
+)
+
+UNION ALL
+
+SELECT GLOBAL_INDEX, INCIDENT_DATE, ORIGINAL_RESULTS, UPPER_LIMIT, SOURCE
+FROM (
+    SELECT t.*,
+           ROW_NUMBER() OVER (
+               PARTITION BY GLOBAL_INDEX, SOURCE
+               ORDER BY INCIDENT_DATE ASC
+           ) AS rn
+    FROM SQC_MI_PRECISION_DEF_RAW t
+    WHERE SOURCE IN (
+        'Dual anti-platelet drug use',
+        'Consecutively using anti-platelet drug at least 6 month'
+    )
+)
+WHERE rn = 1;
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE SQC_MI_PRECISION_DEF_INCIDENCE PURGE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+            RAISE;
+        END IF;
+END;
+/
+CREATE TABLE SQC_MI_PRECISION_DEF_INCIDENCE AS
+SELECT GLOBAL_INDEX,
+       INCIDENT_DATE,
+       ORIGINAL_RESULTS,
+       UPPER_LIMIT,
+       SOURCE
+FROM (
+    SELECT
+        t.*,
+        INCIDENT_DATE - LAG(INCIDENT_DATE) OVER (
+            PARTITION BY GLOBAL_INDEX
+            ORDER BY INCIDENT_DATE
+        ) AS DIFF_DAYS
+    FROM SQC_MI_PRECISION_DEF_TMP t
+)
+WHERE DIFF_DAYS IS NULL OR DIFF_DAYS > 10;

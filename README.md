@@ -59,6 +59,7 @@
 | `specific_symptom_evidence.sql` | 创建 `cad_specific_symptom_evidence` 视图，保留典型缺血症状 |
 | `general_symptom_evidence.sql` | 创建 `cad_general_symptom_evidence` 视图，保留非特异性症状 |
 | `chronic_condition_history.sql` | 创建 `cad_chronic_condition_history` 视图，纳入高血压/糖尿病/血脂异常等慢病史 |
+| `precision_definition_outputs.sql` | 构建 `SQC_MI_PRECISION_DEF_*` 原始事件、患病与发病队列，统一沉淀最终精准定义结果 |
 
 > 建议先在 Oracle 中依次执行模块脚本创建 `cad_` 前缀视图，再运行主脚本完成证据汇总。所有表名及代码仅作为模板示例，可根据实际库表结构和编码体系进行调整。
 
